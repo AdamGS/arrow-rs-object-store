@@ -50,7 +50,9 @@ It's possible to build `object_store` for the `wasm32-unknown-unknown` target, h
 cargo build -p object_store --target wasm32-unknown-unknown
 ```
 
-Here are several related crates in different repositories
+## Related Apache Crates
+
+Here are several related crates in different repositories from other Apache projects.
 
 | Crate                    | Description                                 | Documentation                           |
 | ------------------------ | ------------------------------------------- | --------------------------------------- |
@@ -59,6 +61,24 @@ Here are several related crates in different repositories
 [`object_store_opendal`]: https://crates.io/crates/object_store_opendal
 [`opendal`]: https://crates.io/crates/opendal
 [object_store_opendal-readme]: https://github.com/apache/opendal/blob/main/integrations/object_store/README.md
+
+## Community Extensions
+
+There following community maintained crates provide additional functionality for `object_store` and are NOT governed by the Apache Software Foundation. We list them below in the hope they may be useful, but they are not official Apache projects or endorsed by the Apache Arrow project.
+
+| Crate                        | Description                                                                      | Documentation                               |
+| ---------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------- |
+| [`hdfs_native_object_store`] | Use HDFS as [`object_store`] backend                                             | [(README)][hdfs_native_object_store-readme] |
+| [`ic_object_store`]          | Use [ICP] blockchain as [`object_store`] backend                                 | [(README)][ic_object_store-readme]          |
+| [`anda_object_store`]        | Extends the [`object_store`] with metadata management and AES-256-GCM encryption | [(README)][anda_object_store-readme]        |
+
+[`hdfs_native_object_store`]: https://crates.io/crates/hdfs_native_object_store
+[hdfs_native_object_store-readme]: https://github.com/datafusion-contrib/hdfs-native-object-store
+[`ic_object_store`]: https://crates.io/crates/ic_object_store
+[ic_object_store-readme]: https://github.com/ldclabs/ic-oss/tree/main/src/ic_object_store
+[`anda_object_store`]: https://crates.io/crates/anda_object_store
+[anda_object_store-readme]: https://github.com/ldclabs/anda-db/blob/main/rs/anda_object_store
+[ICP]: https://www.internetcomputer.org/
 
 ## Release Schedule
 
@@ -70,6 +90,6 @@ versions approximately every 2 months.
 
 Planned Release Schedule
 
-| Approximate Date | Version  | Notes                                   | Ticket                                                             |
-| ---------------- | -------- | --------------------------------------- |:-------------------------------------------------------------------|
-| Apr 2025         | `0.12.1` | Minor, NO breaking API changes          | [#287](https://github.com/apache/arrow-rs-object-store/issues/287)                                                                   |
+| Approximate Date | Version  | Notes                          | Ticket                                                             |
+| ---------------- | -------- | ------------------------------ | :----------------------------------------------------------------- |
+| Apr 2025         | `0.12.1` | Minor, NO breaking API changes | [#287](https://github.com/apache/arrow-rs-object-store/issues/287) |
