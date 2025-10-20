@@ -19,7 +19,7 @@
 
 use crate::client::backoff::{Backoff, BackoffConfig};
 use crate::client::builder::HttpRequestBuilder;
-use crate::client::{HttpClient, HttpError, HttpErrorKind, HttpRequest, HttpResponse};
+use crate::client::{sleep, HttpClient, HttpError, HttpErrorKind, HttpRequest, HttpResponse};
 use crate::PutPayload;
 use futures::future::BoxFuture;
 use http::{Method, Uri};
@@ -374,15 +374,15 @@ impl RetryableRequest {
                                 return Err(self.err(RequestError::Response { body, status }, ctx));
                             }
 
-                            let sleep = ctx.backoff();
+                            let sleep_duration = ctx.backoff();
                             info!(
                                 "Encountered a response status of {} but body contains Error, backing off for {} seconds, retry {} of {}",
                                 status,
-                                sleep.as_secs_f32(),
+                                sleep_duration.as_secs_f32(),
                                 ctx.retries,
                                 ctx.max_retries,
                             );
-                            tokio::time::sleep(sleep).await;
+                            sleep::sleep(sleep_duration).await;
                         }
                     } else if status == StatusCode::NOT_MODIFIED {
                         return Err(self.err(RequestError::Status { status, body: None }, ctx));
@@ -419,15 +419,15 @@ impl RetryableRequest {
                             return Err(self.err(source, ctx));
                         };
 
-                        let sleep = ctx.backoff();
+                        let sleep_duration = ctx.backoff();
                         info!(
                             "Encountered server error with status {}, backing off for {} seconds, retry {} of {}",
                             status,
-                            sleep.as_secs_f32(),
+                            sleep_duration.as_secs_f32(),
                             ctx.retries,
                             ctx.max_retries,
                         );
-                        tokio::time::sleep(sleep).await;
+                        sleep::sleep(sleep_duration).await;
                     }
                 }
                 Err(e) => {
@@ -444,16 +444,16 @@ impl RetryableRequest {
                     if ctx.exhausted() || !do_retry {
                         return Err(self.err(RequestError::Http(e), ctx));
                     }
-                    let sleep = ctx.backoff();
+                    let sleep_duration = ctx.backoff();
                     info!(
                         "Encountered transport error of kind {:?}, backing off for {} seconds, retry {} of {}: {}",
                         e.kind(),
-                        sleep.as_secs_f32(),
+                        sleep_duration.as_secs_f32(),
                         ctx.retries,
                         ctx.max_retries,
                         e,
                     );
-                    tokio::time::sleep(sleep).await;
+                    sleep::sleep(sleep_duration).await;
                 }
             }
         }
@@ -509,7 +509,7 @@ impl RetryExt for HttpRequestBuilder {
 mod tests {
     use crate::client::mock_server::MockServer;
     use crate::client::retry::{body_contains_error, RequestError, RetryContext, RetryExt};
-    use crate::client::{HttpClient, HttpResponse};
+    use crate::client::{sleep, HttpClient, HttpResponse};
     use crate::RetryConfig;
     use http::StatusCode;
     use hyper::header::LOCATION;
@@ -730,14 +730,14 @@ mod tests {
 
         // Retries on client timeout
         mock.push_async_fn(|_| async move {
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            sleep::sleep(Duration::from_secs(10)).await;
             panic!()
         });
         do_request().await.unwrap();
 
         // Does not retry PUT request
         mock.push_async_fn(|_| async move {
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            sleep::sleep(Duration::from_secs(10)).await;
             panic!()
         });
         let res = client.request(Method::PUT, mock.url()).send_retry(&retry);
