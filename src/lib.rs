@@ -1082,12 +1082,7 @@ impl GetResult {
                 maybe_spawn_blocking(move || {
                     use crate::local::read_range;
 
-                    let buffer = read_range(
-                        &mut file,
-                        self.meta.size,
-                        &path,
-                        self.range.start..self.range.end,
-                    )?;
+                    let buffer = read_range(&mut file, self.meta.size, &path, self.range)?;
 
                     Ok(buffer)
                 })
