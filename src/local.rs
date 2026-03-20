@@ -285,6 +285,13 @@ impl Config {
             return Err(error.into());
         }
 
+        #[cfg(target_os = "windows")]
+        // Raw absolute Windows paths should bypass URL reconstruction entirely.
+        // The Windows-specific block below only fixes up paths produced by `to_file_path`.
+        if let Some(path) = try_raw_windows_filesystem_path(location) {
+            return Ok(path);
+        }
+
         let path = self.prefix_to_filesystem(location)?;
 
         #[cfg(target_os = "windows")]
@@ -310,6 +317,12 @@ impl Config {
             Some(&self.root),
         )?)
     }
+}
+
+#[cfg(target_os = "windows")]
+fn try_raw_windows_filesystem_path(location: &Path) -> Option<PathBuf> {
+    let path = std::path::Path::new(location.as_ref());
+    path.is_absolute().then(|| path.to_path_buf())
 }
 
 fn is_valid_file_path(path: &Path) -> bool {
@@ -1748,6 +1761,97 @@ mod tests {
         let integration = LocalFileSystem::new();
         let path = Path::from_filesystem_path(".").unwrap();
         integration.list_with_delimiter(Some(&path)).await.unwrap();
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_try_raw_windows_filesystem_path() {
+        let path = Path::parse(r"C:\tmp\file.txt").unwrap();
+        assert_eq!(
+            try_raw_windows_filesystem_path(&path),
+            Some(PathBuf::from(r"C:\tmp\file.txt"))
+        );
+
+        let path = Path::parse("C:/tmp/file.txt").unwrap();
+        assert_eq!(
+            try_raw_windows_filesystem_path(&path),
+            Some(PathBuf::from("C:/tmp/file.txt"))
+        );
+
+        let path = Path::parse("dir/file.txt").unwrap();
+        assert_eq!(try_raw_windows_filesystem_path(&path), None);
+
+        let path = Path::parse("C:relative.txt").unwrap();
+        assert_eq!(try_raw_windows_filesystem_path(&path), None);
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_path_to_filesystem_preserves_raw_windows_paths() {
+        let root = TempDir::new().unwrap();
+        let integration = LocalFileSystem::new_with_prefix(root.path()).unwrap();
+
+        let path = Path::parse(r"C:\tmp\file.txt").unwrap();
+        assert_eq!(
+            integration.path_to_filesystem(&path).unwrap(),
+            PathBuf::from(r"C:\tmp\file.txt")
+        );
+
+        let path = Path::parse("C:/tmp/file.txt").unwrap();
+        assert_eq!(
+            integration.path_to_filesystem(&path).unwrap(),
+            PathBuf::from("C:/tmp/file.txt")
+        );
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_path_to_filesystem_keeps_relative_object_paths() {
+        let root = TempDir::new().unwrap();
+        let integration = LocalFileSystem::new_with_prefix(root.path()).unwrap();
+        let canonical_root = root.path().canonicalize().unwrap();
+
+        let path = Path::parse("dir/file.txt").unwrap();
+        assert_eq!(
+            integration.path_to_filesystem(&path).unwrap(),
+            canonical_root.join("dir").join("file.txt")
+        );
+
+        let path = Path::parse("dir/L%3ABC.parquet").unwrap();
+        assert_eq!(
+            integration.path_to_filesystem(&path).unwrap(),
+            canonical_root.join("dir").join("L%3ABC.parquet")
+        );
+    }
+
+    #[tokio::test]
+    #[cfg(target_os = "windows")]
+    async fn test_get_opts_head_with_absolute_windows_path() {
+        use std::io::Write;
+
+        let tmpdir = TempDir::new().unwrap();
+        let file = tmpdir.path().join("test.file");
+
+        let mut rust_file = std::fs::File::create(&file).unwrap();
+        write!(rust_file, "test").unwrap();
+        drop(rust_file);
+
+        let integration = LocalFileSystem::new();
+        let location = Path::parse(file.to_str().unwrap()).unwrap();
+
+        let meta = integration
+            .get_opts(
+                &location,
+                crate::GetOptions {
+                    head: true,
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap()
+            .meta;
+        assert_eq!(meta.location, location);
+        assert_eq!(meta.size, 4);
     }
 
     #[test]
